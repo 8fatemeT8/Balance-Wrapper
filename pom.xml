@@ -12,11 +12,12 @@
     <groupId>com.refah</groupId>
     <artifactId>WalletWrapper</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-
+    <packaging>jar</packaging>
     <name>WalletWrapper</name>
     <description>WalletWrapper</description>
 
     <properties>
+        <start-class>com.refah.walletwrapper.WalletWrapperApplication</start-class>
         <java.version>1.8</java.version>
         <spring-data-jpa-entity-graph.version>2.2.8</spring-data-jpa-entity-graph.version>
     </properties>
@@ -119,5 +120,23 @@
         </dependency>
     </dependencies>
 
-
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <mainClass>com.refah.walletwrapper.WalletWrapperApplication</mainClass>
+                    <layout>JAR</layout>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 </project>
