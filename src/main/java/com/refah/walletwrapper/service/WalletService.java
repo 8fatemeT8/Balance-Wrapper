@@ -73,7 +73,6 @@ public class WalletService {
                             user.getWallet().setBalance(root.data.balances.stream().filter(it -> it.accountKind == 1).findFirst().get().balance + "");
                         }
                     } catch (JsonProcessingException e) {
-                        throw new RuntimeException(e);
                     }
                 });
 

@@ -61,7 +61,7 @@ public class UserWalletService {
                 it -> {
                     Wallet wallet = new Wallet();
                     wallet.getTransactions().add(new Transaction(it.get(4), wallet));
-                    return new User(it.get(0), it.get(1), it.get(2), it.get(3), it.get(5), wallet, excelDetail, createdDate);
+                    return new User(it.get(0), it.get(1), it.get(2), it.get(3),"", wallet, excelDetail, createdDate);
                 }
         ).collect(Collectors.toList());
     }

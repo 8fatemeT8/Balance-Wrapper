@@ -7,11 +7,11 @@ public class Balance {
     @JsonProperty("AccountNumber")
     public String accountNumber;
     @JsonProperty("Balance")
-    public int balance;
+    public Long balance;
     @JsonProperty("AvailableBalance")
-    public int availableBalance;
+    public Long availableBalance;
     @JsonProperty("AccountKind")
-    public int accountKind;
+    public Long accountKind;
     @JsonProperty("AccountKindTitle")
     public String accountKindTitle;
     @JsonProperty("TenantName")
