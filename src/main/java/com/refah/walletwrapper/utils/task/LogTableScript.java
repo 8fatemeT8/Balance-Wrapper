@@ -37,7 +37,7 @@ public class LogTableScript implements StartUpTask {
                 try {
                     if ((line = br.readLine()) == null) break;
                 } catch (IOException e) {
-                    throw new RuntimeException(e);
+                    return null;
                 }
                 entityManager.createNativeQuery(line).executeUpdate();
             }

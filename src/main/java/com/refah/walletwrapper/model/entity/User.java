@@ -26,6 +26,7 @@ public class User extends BaseModel {
 
     private String registerErrorCode;
 
+    private Boolean registered = false;
     @Column(columnDefinition = "TEXT")
     private String errorResponseValidation;
 
@@ -69,6 +70,14 @@ public class User extends BaseModel {
         this.excelDetail = excelDetail;
     }
 
+
+    public boolean isRegistered() {
+        return registered;
+    }
+
+    public void setRegistered(boolean registered) {
+        this.registered = registered;
+    }
 
     public String getRegisterReturnValue() {
         return registerReturnValue;

@@ -6,10 +6,9 @@ import com.refah.walletwrapper.model.entity.User;
 import com.refah.walletwrapper.model.entity.Wallet;
 import com.refah.walletwrapper.repository.ExcelDetailRepository;
 import com.refah.walletwrapper.utils.ReadExcelData;
-import io.micrometer.core.annotation.Timed;
+import com.refah.walletwrapper.utils.exception.ResponseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -20,6 +19,7 @@ import java.util.stream.Collectors;
 public class UserWalletService {
     Logger logger = LoggerFactory.getLogger(UserWalletService.class);
 
+    public static final List<String> excelHeaders = Arrays.asList("first_name", "last_name", "national_code", "mobile", "balance");
     private final FileStorageService fileStorageService;
     private final ExcelDetailRepository excelDetailRepository;
     private final UserService userService;
@@ -34,36 +34,81 @@ public class UserWalletService {
     }
 
 
-    @Timed
     public List<User> readExcelAndSave(MultipartFile file, Long tenantId, String accountNumberCode, String url, String accessToken) {
         logger.info("saving file to storage");
         fileStorageService.save(file);
         logger.info("read data from excel");
         Date createdDate = new Date();
         ArrayList<ArrayList<String>> data = ReadExcelData.importExcelData(file);
-        data.remove(0);
+        List<Integer> headerIndexes = getExcelHeaders(data);
         logger.info("create ExcelDetail in database");
         ExcelDetail excelDetail = initialExcelDetail(file, tenantId, accountNumberCode, url, createdDate, accessToken);
         logger.info("map data to user list");
-        List<User> users = mapDataToUserList(data, excelDetail, createdDate);
+        Map<String, User> users = mapDataToUserList(data, excelDetail, createdDate, headerIndexes);
         logger.info("send data to repository ");
-        return userService.saveAll(users);
+        return saveUser(users);
     }
 
-    @Async
-    @Timed
+    private List<User> saveUser(Map<String, User> users) {
+        Map<String, User> dbUsers = userService.getUserByMobileNumber(new ArrayList<>(users.keySet()));
+        users.forEach((k, v) -> {
+            if (dbUsers.containsKey(k)) {
+                User user = dbUsers.get(k);
+                v.setId(user.getId());
+                v.getWallet().setId(user.getWallet().getId());
+                v.getWallet().getTransactions().addAll(user.getWallet().getTransactions());
+                v.setRegistered(user.isRegistered());
+            }
+        });
+        return userService.saveAll(new ArrayList<>(users.values()));
+    }
+
+
+    private List<Integer> getExcelHeaders(ArrayList<ArrayList<String>> data) {
+        int indexFirstName, indexLastName, indexMobileNumber, indexNationalCode, indexEmail, indexBalanceAmount;
+        List<String> headers = data.get(0).stream().map(String::toLowerCase).collect(Collectors.toList());
+        if (!new HashSet<>(headers).containsAll(excelHeaders))
+            throw new ResponseException(400, "فرمت ارسالی اکسل قابل تایید نمیباشد " + Arrays.asList(excelHeaders.toArray()) + "  صحیح میباشد");
+        headers.removeIf(h -> !excelHeaders.contains(h) && !h.equals("email"));
+        indexFirstName = getIndex(headers, 0);
+        indexLastName = getIndex(headers, 1);
+        indexNationalCode = getIndex(headers, 2);
+        indexMobileNumber = getIndex(headers, 3);
+        indexBalanceAmount = getIndex(headers, 4);
+        indexEmail = headers.indexOf("email");
+        data.remove(0);
+        return Arrays.asList(indexFirstName, indexLastName, indexNationalCode, indexMobileNumber, indexBalanceAmount, indexEmail);
+    }
+
+    private static int getIndex(List<String> headers, int index) {
+        return headers.indexOf(excelHeaders.get(index));
+    }
+
     public void registerAndSetBalance(List<User> users) {
-        walletService.setBalance(userService.registerUsers(users));
+        userService.registerUsers(users.stream().filter(it -> !it.isRegistered()).collect(Collectors.toList()));
+        walletService.setBalance(users);
     }
 
-    private List<User> mapDataToUserList(ArrayList<ArrayList<String>> data, ExcelDetail excelDetail, Date createdDate) {
+    private Map<String, User> mapDataToUserList(ArrayList<ArrayList<String>> data,
+                                                ExcelDetail excelDetail, Date createdDate, List<Integer> indexes) {
         return data.stream().map(
                 it -> {
+                    if (it.size() < 4)
+                        return null;
                     Wallet wallet = new Wallet();
-                    wallet.getTransactions().add(new Transaction(it.get(4), wallet));
-                    return new User(it.get(0), it.get(1), it.get(2), it.get(3),"", wallet, excelDetail, createdDate);
+                    try {
+                        new Long(it.get(indexes.get(4)));
+                        new Long(it.get(indexes.get(2)));
+                        new Long(it.get(indexes.get(3)));
+                    }catch (NumberFormatException e){
+                        throw new ResponseException(400,"اکسل شامل دیتای ناقص می باشد لطفا ستون ها به تربیت و پشت سر و بدون فاصله مانند نمونه ارسال گردد. \n نمونه ترتیب ستون ها : first_name, last_name, national_code, mobile, balance");
+                    }
+                    wallet.getTransactions().add(new Transaction(it.get(indexes.get(4)), wallet));
+                    return new User(it.get(indexes.get(0)), it.get(indexes.get(1)), it.get(indexes.get(2)),
+                            it.get(indexes.get(3)), indexes.get(5) != -1 ? (it.size() < indexes.get(5) ? "" : it.get(indexes.get(5))) : "",
+                            wallet, excelDetail, createdDate);
                 }
-        ).collect(Collectors.toList());
+        ).filter(Objects::nonNull).collect(Collectors.toMap(User::getMobileNumber, user -> user));
     }
 
     private ExcelDetail initialExcelDetail(MultipartFile file, Long tenantId, String accountNumberCode,

@@ -9,6 +9,7 @@ import com.refah.walletwrapper.model.dto.Root;
 import com.refah.walletwrapper.model.entity.Transaction;
 import com.refah.walletwrapper.model.entity.User;
 import com.refah.walletwrapper.repository.WalletRepository;
+import com.refah.walletwrapper.utils.exception.ResponseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpEntity;
@@ -16,12 +17,11 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import javax.persistence.EntityManager;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -30,12 +30,15 @@ public class WalletService {
 
     private final RestTemplate restTemplate;
     private final WalletRepository walletRepository;
+    private final EntityManager entityManager;
 
-    public WalletService(RestTemplate restTemplate, WalletRepository walletRepository) {
+    public WalletService(RestTemplate restTemplate, WalletRepository walletRepository, EntityManager entityManager) {
         this.restTemplate = restTemplate;
         this.walletRepository = walletRepository;
+        this.entityManager = entityManager;
     }
 
+    @Transactional
     @Async
     public void setBalance(List<User> users) {
         logger.info("prepare user data for send to transfer balance");
@@ -44,13 +47,18 @@ public class WalletService {
                     Optional<Transaction> transaction = user.getWallet().getTransactions().stream().filter(it -> !it.isFinished()).findFirst();
                     if (!transaction.isPresent())
                         return;
-                    BalanceDto jsonBody = new BalanceDto(Collections.singletonList(
-                            new ItemBalance(
-                                    new ChildItemBalance(user.getExcelDetail().getTenantId(), null, user.getExcelDetail().getAccountNumberCode()),
-                                    new ChildItemBalance(user.getExcelDetail().getTenantId(), user.getMobileNumber(), null),
-                                    new Long(transaction.get().getBalance())
-                            )));
+                    BalanceDto jsonBody;
+                    try {
+                        jsonBody = new BalanceDto(Collections.singletonList(
+                                new ItemBalance(
+                                        new ChildItemBalance(user.getExcelDetail().getTenantId(), null, user.getExcelDetail().getAccountNumberCode()),
+                                        new ChildItemBalance(user.getExcelDetail().getTenantId(), user.getMobileNumber(), null),
+                                        new Long(transaction.get().getAmount())
+                                )));
 
+                    } catch (NumberFormatException e) {
+                        return;
+                    }
                     logger.info("fill request headers");
                     HttpHeaders header = new HttpHeaders();
                     String transactionId = UUID.randomUUID().toString();
@@ -70,13 +78,19 @@ public class WalletService {
                         if (root.isSuccess && root.data != null) {
                             transaction.get().setReceiptId(root.data.receiptID);
                             transaction.get().setFinished(true);
-                            user.getWallet().setBalance(root.data.balances.stream().filter(it -> it.accountKind == 1).findFirst().get().balance + "");
+                            user.getWallet().setBalance(root.data.balances.stream().filter(it -> it.accountKind != null).filter(it -> it.accountKind == 1).findFirst().get().balance + "");
+                        } else if (root.message == null) {
+                            throw new ResponseException(400, (root.validationErrors).toString());
+                        } else {
+                            throw new ResponseException(400, root.message);
                         }
                     } catch (JsonProcessingException e) {
+                        logger.error(e.getMessage());
+                    } finally {
+                        walletRepository.save(user.getWallet());
+                        entityManager.flush();
                     }
                 });
-
-
         walletRepository.saveAll(users.stream().map(User::getWallet).collect(Collectors.toList()));
     }
 }

@@ -25,7 +25,7 @@ public class FileStorageService {
             logger.info("create directory for save excels");
             Files.createDirectories(root);
         } catch (IOException e) {
-            throw new RuntimeException("Could not initialize folder for upload!");
+            logger.error("Could not initialize folder for upload!");
         }
     }
 
@@ -38,9 +38,9 @@ public class FileStorageService {
 
         } catch (Exception e) {
             if (e instanceof FileAlreadyExistsException) {
-                throw new RuntimeException("A file of that name already exists.");
+                logger.error("A file of that name already exists.");
             }
-            throw new RuntimeException(e.getMessage());
+            logger.error(e.getMessage());
         }
 
     }

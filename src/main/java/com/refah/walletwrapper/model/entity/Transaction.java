@@ -11,7 +11,7 @@ import java.util.Date;
 @Table(name = "transactions")
 @Audited
 public class Transaction extends BaseModel {
-    private String balance;
+    private String amount;
     private String receiptId;
     private String transactionId;
     private boolean finished = false;
@@ -20,12 +20,12 @@ public class Transaction extends BaseModel {
     private Wallet wallet;
 
 
-    public String getBalance() {
-        return balance;
+    public String getAmount() {
+        return amount;
     }
 
-    public void setBalance(String balance) {
-        this.balance = balance;
+    public void setAmount(String balance) {
+        this.amount = balance;
     }
 
     public String getReceiptId() {
@@ -63,20 +63,20 @@ public class Transaction extends BaseModel {
     public Transaction() {
     }
 
-    public Transaction(String balance,Wallet wallet) {
-        this.balance = balance;
+    public Transaction(String amount, Wallet wallet) {
+        this.amount = amount;
         this.wallet = wallet;
     }
 
-    public Transaction(String balance, String receiptId, String transactionId) {
-        this.balance = balance;
+    public Transaction(String amount, String receiptId, String transactionId) {
+        this.amount = amount;
         this.receiptId = receiptId;
         this.transactionId = transactionId;
     }
 
-    public Transaction(Integer id, Date createdDate, String balance, String receiptId, String transactionId) {
+    public Transaction(Integer id, Date createdDate, String amount, String receiptId, String transactionId) {
         super(id, createdDate);
-        this.balance = balance;
+        this.amount = amount;
         this.receiptId = receiptId;
         this.transactionId = transactionId;
     }

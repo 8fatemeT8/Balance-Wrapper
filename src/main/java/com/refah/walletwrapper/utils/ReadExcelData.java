@@ -27,10 +27,14 @@ public class ReadExcelData {
                     Cell cell = cellIterator.next();
                     switch (cell.getCellType()) {
                         case NUMERIC:
-                            rowDetail.add(new Double(cell.getNumericCellValue()).longValue() + "");
+                            long value = new Double(cell.getNumericCellValue()).longValue();
+                            if (value != 0)
+                                rowDetail.add(value + "");
                             break;
                         case STRING:
-                            rowDetail.add(cell.getStringCellValue());
+                            String stringValue = cell.getStringCellValue();
+                            if (stringValue != null && !stringValue.isEmpty())
+                                rowDetail.add(stringValue);
                             break;
                     }
                 }

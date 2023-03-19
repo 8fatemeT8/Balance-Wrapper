@@ -12,12 +12,13 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
+import javax.persistence.EntityManager;
 import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class UserService {
@@ -25,17 +26,24 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final RestTemplate restTemplate;
+    private final EntityManager entityManager;
 
-    public UserService(UserRepository userRepository, RestTemplate restTemplate) {
+    public UserService(UserRepository userRepository, RestTemplate restTemplate, EntityManager entityManager) {
         this.userRepository = userRepository;
         this.restTemplate = restTemplate;
+        this.entityManager = entityManager;
     }
 
     public List<User> saveAll(List<User> users) {
         return userRepository.saveAll(users);
     }
 
-    public List<User> registerUsers(List<User> users) {
+    public Map<String, User> getUserByMobileNumber(List<String> mobiles) {
+        return userRepository.findAllByMobileNumberIn(mobiles).stream().collect(Collectors.toMap(User::getMobileNumber, user -> user));
+    }
+
+    @Transactional
+    public void registerUsers(List<User> users) {
         String pattern = "YYYY-MM-DD HH:mm:ss";
         SimpleDateFormat simpleDateFormat = new SimpleDateFormat(pattern);
         String date = simpleDateFormat.format(new Date());
@@ -44,10 +52,11 @@ public class UserService {
             try {
                 prepareAndRegister(user, date);
             } catch (JsonProcessingException e) {
-                throw new RuntimeException(e);
+                logger.error(e.getMessage());
             }
         });
-        return userRepository.saveAll(users);
+        userRepository.saveAll(users);
+        entityManager.flush();
     }
 
     private void prepareAndRegister(User user, String date) throws JsonProcessingException {
@@ -69,9 +78,11 @@ public class UserService {
         ResponseEntity<String> response = restTemplate.postForEntity(user.getExcelDetail().getBaseUrl() + "/api/v1/Customer/Register", body, String.class);
         logger.info("/api/v1/Customer/Register response : " + response);
         RegisterResponseDto responseBody = new ObjectMapper().readValue(response.getBody(), RegisterResponseDto.class);
-        if (responseBody.isSuccess() && responseBody.getData() != null && responseBody.getData().getReturnValue() != null)
-            user.setRegisterReturnValue(responseBody.getData().getReturnValue().toString());
-        else if (!responseBody.isSuccess()) {
+        if (responseBody.isSuccess()) {
+            user.setRegistered(true);
+            if (responseBody.getData() != null && responseBody.getData().getReturnValue() != null)
+                user.setRegisterReturnValue(responseBody.getData().getReturnValue().toString());
+        } else {
             user.setRegisterErrorCode(responseBody.getErrorCode());
             user.setErrorResponseValidation(responseBody.getValidationErrors());
         }
