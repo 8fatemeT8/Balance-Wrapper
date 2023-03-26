@@ -34,7 +34,8 @@ public class UserWalletService {
     }
 
 
-    public List<User> readExcelAndSave(MultipartFile file, Long tenantId, String accountNumberCode, String url, String accessToken) {
+    public List<User> readExcelAndSave(MultipartFile file, Long tenantId, String accountNumberCode,
+                                       String companyName, String url, String accessToken) {
         logger.info("saving file to storage");
         fileStorageService.save(file);
         logger.info("read data from excel");
@@ -42,7 +43,7 @@ public class UserWalletService {
         ArrayList<ArrayList<String>> data = ReadExcelData.importExcelData(file);
         List<Integer> headerIndexes = getExcelHeaders(data);
         logger.info("create ExcelDetail in database");
-        ExcelDetail excelDetail = initialExcelDetail(file, tenantId, accountNumberCode, url, createdDate, accessToken);
+        ExcelDetail excelDetail = initialExcelDetail(file, tenantId, accountNumberCode, companyName, url, createdDate, accessToken);
         logger.info("map data to user list");
         Map<String, User> users = mapDataToUserList(data, excelDetail, createdDate, headerIndexes);
         logger.info("send data to repository ");
@@ -100,8 +101,8 @@ public class UserWalletService {
                         new Long(it.get(indexes.get(4)));
                         new Long(it.get(indexes.get(2)));
                         new Long(it.get(indexes.get(3)));
-                    }catch (NumberFormatException e){
-                        throw new ResponseException(400,"اکسل شامل دیتای ناقص می باشد لطفا ستون ها به تربیت و پشت سر و بدون فاصله مانند نمونه ارسال گردد. \n نمونه ترتیب ستون ها : first_name, last_name, national_code, mobile, balance");
+                    } catch (NumberFormatException e) {
+                        throw new ResponseException(400, "اکسل شامل دیتای ناقص می باشد لطفا ستون ها به تربیت و پشت سر و بدون فاصله مانند نمونه ارسال گردد. \n نمونه ترتیب ستون ها : first_name, last_name, national_code, mobile, balance");
                     }
                     wallet.getTransactions().add(new Transaction(it.get(indexes.get(4)), wallet));
                     return new User(it.get(indexes.get(0)), it.get(indexes.get(1)), it.get(indexes.get(2)),
@@ -112,11 +113,12 @@ public class UserWalletService {
     }
 
     private ExcelDetail initialExcelDetail(MultipartFile file, Long tenantId, String accountNumberCode,
-                                           String url, Date createdDate, String accessToken) {
+                                           String companyName, String url, Date createdDate, String accessToken) {
         ExcelDetail excelData = new ExcelDetail(
                 file.getOriginalFilename(),
                 tenantId,
                 accountNumberCode,
+                companyName,
                 url,
                 createdDate,
                 accessToken != null ? accessToken : "eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJJZCI6IjE1OWE0Y2FkLTA1OGEtNGI0ZC1hZmIyLWJiNzIxYzQxNjQ3OCIsIkZpcnN0TmFtZSI6IiIsIkxhc3ROYW1lIjoiIiwiUGhvbmVObyI6Ik15X0lyYW5jZWxsIiwiSW1hZ2UiOiIiLCJOYXRpb25hbENvZGUiOiIiLCJCaXJ0aERhdGUiOiIiLCJFbWFpbCI6Ik15TVROQElyYW5jZWxsLmNvbSIsIkNpdHkiOiIiLCJDcmVhdGVBdCI6IjIvNi8yMDIyIDExOjQ0OjAyIEFNIiwiaWJhbiI6IiIsIlN0YXR1cyI6IkFjdGl2ZSIsIkRldmljZUlkIjoiZjIwODhmMTMtY2ExZS00YjA5LWFkOTctZTVmMzUzNDU0N2M4IiwiVGVuYW50SWQiOiI2NzAzMDA1IiwiVGVybWluYWwiOiIxMDAwMDE5MyIsIkpvYkhvbGRlcklkIjoiMTE0NTIzMCIsInJvbGVzSWQiOiI4ZjVmMWY2ZC02NWFlLTQ4Y2ItOWM1MC03NTdkN2QwZTIwMTYiLCJyb2xlIjpbIjEyIiwiMTMiLCIxNCIsIjE2IiwiMTciLCIxOCIsIjIwIiwiMjEiLCIyMiIsIjIzIiwiMjciLCIyOCIsIjI5IiwiMzAiLCIzMSIsIjMyIiwiMzMiLCIzNCIsIjM1IiwiNTMiLCI1NCIsIjU1IiwiNTYiLCI1NyIsIjU4IiwiMTAwIiwiMTAxIiwiMTAyIiwiMTAzIiwiMTA0IiwiMTA1IiwiMTA2IiwiMTA3IiwiMTA4IiwiMTA5IiwiMTEwIiwiMTExIiwiMTE0IiwiMTE3IiwiMTE5IiwiMTIxIiwiMTIyIiwiMTIzIiwiMTI0IiwiMTI1IiwiMTI2IiwiMTI3IiwiMTI4IiwiMTI5IiwiMTMwIiwiMTMxIiwiMTMyIiwiMTMzIiwiMTM0IiwiMTM1IiwiMTM2IiwiMTM3IiwiMTM4IiwiMTM5IiwiMTQwIiwiMTQxIiwiMTQyIiwiMTQzIiwiMTQ0IiwiMTQ1IiwiMTQ2IiwiMTQ3IiwiMTQ4IiwiMTQ5IiwiMTUwIiwiMTUxIiwiMTUyIiwiMTUzIiwiMTU0IiwiMTU1IiwiMTU2IiwiMTU3IiwiMTU4IiwiMTU5IiwiMTYwIiwiMTYxIiwiMTYyIiwiMTYzIiwiMTY0IiwiMTY1IiwiMTY2IiwiMTY3IiwiMTY4IiwiMTY5IiwiMTcwIiwiMTcxIiwiMTcyIiwiMTczIiwiMTc0IiwiMTc1IiwiMTc2IiwiMTc3IiwiMTc4IiwiMTc5IiwiMTgwIiwiMTgxIiwiMTgyIiwiMTgzIiwiMTg0IiwiMTg1IiwiMTg2IiwiMTg3IiwiMTg4IiwiMTg5IiwiMTkwIiwiMTkxIiwiMTkyIiwiMTk0IiwiMTk1IiwiMTk2IiwiMTk3IiwiMTk4IiwiMTk5IiwiMjAwIiwiMjAxIiwiMjAyIiwiMjAzIiwiMjA0IiwiMjA1IiwiMjA2IiwiMjA3IiwiMjA4IiwiMjA5IiwiMjEwIiwiMjExIiwiMjEyIiwiMjEzIiwiMjE0IiwiMjE1IiwiMjE2IiwiMjE3IiwiMjE4Il0sIm5iZiI6MTY1NDUxNDE4NCwiZXhwIjo0ODEwMTg3Nzg0LCJpYXQiOjE2NTQ1MTQxODR9.C5JJFWniDmXpReHpjJDFLMqgLONZ5MPAC1UIl6d4vLbfe4MNNWoaa2vkAnni7ygPdwG2rQeZgBvEy6ltS83e3w");

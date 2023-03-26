@@ -18,6 +18,8 @@ public class ExcelDetail extends BaseModel {
 
     private String accountNumberCode;
 
+    private String companyName;
+
     @Column(nullable = false)
     private String baseUrl;
 
@@ -27,14 +29,23 @@ public class ExcelDetail extends BaseModel {
     public ExcelDetail() {
     }
 
-    public ExcelDetail(String excelName, Long tenantId, String accountNumberCode, String baseUrl,
-                       Date createdDate, String authKey) {
+    public ExcelDetail(String excelName, Long tenantId, String accountNumberCode,
+                       String companyName, String baseUrl, Date createdDate, String authKey) {
         this.excelName = excelName;
         this.tenantId = tenantId;
         this.accountNumberCode = accountNumberCode;
+        this.companyName = companyName;
         this.baseUrl = baseUrl;
         this.authKey = authKey;
         super.setCreatedDate(createdDate);
+    }
+
+    public String getCompanyName() {
+        return companyName;
+    }
+
+    public void setCompanyName(String companyName) {
+        this.companyName = companyName;
     }
 
     public String getExcelName() {
