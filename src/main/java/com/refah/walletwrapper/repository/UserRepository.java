@@ -8,4 +8,6 @@ import java.util.List;
 @Repository
 public interface UserRepository extends BaseJpaRepository<User, Integer> {
     List<User> findAllByMobileNumberIn(List<String> mobiles);
+    List<User> findAllByExcelDetailCompanyName(String companyName);
+    List<User> findAllByExcelDetailAccountNumberCode(String AccountNumberCode);
 }

@@ -91,6 +91,7 @@ public class ExcelDetail extends BaseModel {
     @Override
     public String toString() {
         return "\n - excelName : " + excelName +
+                "\n - companyName : " + companyName +
                 "\n - tenantId : " + tenantId +
                 "\n - accountNumberCode : " + accountNumberCode +
                 "\n - baseUrl : " + baseUrl +

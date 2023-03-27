@@ -42,6 +42,14 @@ public class UserService {
         return userRepository.findAllByMobileNumberIn(mobiles).stream().collect(Collectors.toMap(User::getMobileNumber, user -> user));
     }
 
+    public List<User> getUserByCompanyName(String companyName) {
+        return userRepository.findAllByExcelDetailCompanyName(companyName);
+    }
+
+    public List<User> getUserByAccountNumber(String accountNumberCode) {
+        return userRepository.findAllByExcelDetailAccountNumberCode(accountNumberCode);
+    }
+
     @Transactional
     public void registerUsers(List<User> users) {
         String pattern = "YYYY-MM-DD HH:mm:ss";

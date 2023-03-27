@@ -10,7 +10,7 @@ import java.util.Date;
 @Entity
 @Table(name = "transactions")
 @Audited
-public class Transaction extends BaseModel {
+public class Transaction extends BaseModel implements Comparable<Transaction> {
     private String amount;
     private String receiptId;
     private String transactionId;
@@ -79,5 +79,10 @@ public class Transaction extends BaseModel {
         this.amount = amount;
         this.receiptId = receiptId;
         this.transactionId = transactionId;
+    }
+
+    @Override
+    public int compareTo(Transaction o) {
+        return this.getId().compareTo(o.getId());
     }
 }
