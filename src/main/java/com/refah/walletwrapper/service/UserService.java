@@ -4,13 +4,16 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.refah.walletwrapper.model.dto.RegisterResponseDto;
 import com.refah.walletwrapper.model.dto.UserRegisterDto;
+import com.refah.walletwrapper.model.entity.Transaction;
 import com.refah.walletwrapper.model.entity.User;
 import com.refah.walletwrapper.repository.UserRepository;
+import com.refah.walletwrapper.utils.SmsProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
@@ -27,11 +30,14 @@ public class UserService {
     private final UserRepository userRepository;
     private final RestTemplate restTemplate;
     private final EntityManager entityManager;
+    private SmsProvider smsProvider;
 
-    public UserService(UserRepository userRepository, RestTemplate restTemplate, EntityManager entityManager) {
+    public UserService(UserRepository userRepository, RestTemplate restTemplate,
+                       EntityManager entityManager, SmsProvider smsProvider) {
         this.userRepository = userRepository;
         this.restTemplate = restTemplate;
         this.entityManager = entityManager;
+        this.smsProvider = smsProvider;
     }
 
     public List<User> saveAll(List<User> users) {
@@ -95,5 +101,20 @@ public class UserService {
             user.setErrorResponseValidation(responseBody.getValidationErrors());
         }
         user.setRegisterResponse(response.getBody());
+    }
+
+    @Async
+    public void sendSms(List<User> users) {
+        users.forEach(
+                u -> {
+                    try {
+                        List<Transaction> sorted = u.getWallet().getTransactions();
+                        sorted.sort(Collections.reverseOrder());
+                        smsProvider.sendMessage(u.getMobileNumber(), "کیف پول شما به مبلغ " + sorted.stream().findFirst().get().getAmount() + "  ریال شارژ شد");
+                    } catch (Exception e) {
+                        logger.error("error in send sms for user with " + u.getMobileNumber() + " mobile number");
+                    }
+                }
+        );
     }
 }

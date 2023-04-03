@@ -36,6 +36,9 @@ public class UserWalletController {
         List<User> users = userWalletService.readExcelAndSave(file, tenantId == null ? 6703005 : tenantId, accountNumberCode, companyName, baseUrl == null ? "http://172.16.1.174:8010" : baseUrl, accessToken);
         logger.info("save all data on database");
         userWalletService.registerAndSetBalance(users);
+        logger.info("sending sms to users");
+        userService.sendSms(users);
+        logger.info("send all messages");
         logger.info("complete api");
         return ResponseEntity.accepted().body("عملیات با موفقیت پایان یافت");
     }
