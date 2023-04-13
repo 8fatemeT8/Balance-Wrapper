@@ -33,12 +33,9 @@ public class UserWalletController {
     @PostMapping("/upload/user/excel")
     public ResponseEntity<?> readData(@RequestParam("file") MultipartFile file, @RequestParam String accountNumberCode, @RequestParam String companyName, Long tenantId, String baseUrl, String accessToken) {
         logger.info("api params -> { tenantId:" + tenantId + ", accountNumberCode :" + accountNumberCode + ", baseUrl:" + baseUrl + " ,companyName: " + companyName + "}");
-        List<User> users = userWalletService.readExcelAndSave(file, tenantId == null ? 6703005 : tenantId, accountNumberCode, companyName, baseUrl == null ? "http://172.16.1.174:8010" : baseUrl, accessToken);
+        List<User> users = userWalletService.readExcelAndSave(file, tenantId == null ? 6703005 : tenantId, accountNumberCode, companyName, baseUrl == null ? "http://172.16.1.150:8010" : baseUrl, accessToken);
         logger.info("save all data on database");
         userWalletService.registerAndSetBalance(users);
-        logger.info("sending sms to users");
-        userService.sendSms(users);
-        logger.info("send all messages");
         logger.info("complete api");
         return ResponseEntity.accepted().body("عملیات با موفقیت پایان یافت");
     }

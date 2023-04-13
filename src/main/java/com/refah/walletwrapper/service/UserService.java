@@ -30,7 +30,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final RestTemplate restTemplate;
     private final EntityManager entityManager;
-    private SmsProvider smsProvider;
+    private final SmsProvider smsProvider;
 
     public UserService(UserRepository userRepository, RestTemplate restTemplate,
                        EntityManager entityManager, SmsProvider smsProvider) {
@@ -76,17 +76,8 @@ public class UserService {
     private void prepareAndRegister(User user, String date) throws JsonProcessingException {
         UserRegisterDto jsonBody = new UserRegisterDto(user.getMobileNumber(), user.getEmail(),
                 user.getNationalCode(), user.getFirstName(), user.getLastName());
-        logger.info("set header params");
-        HttpHeaders header = new HttpHeaders();
         String transactionId = UUID.randomUUID().toString();
-        logger.info("set transactionId : " + transactionId + " for user with " + user.getMobileNumber() + " mobileNumber");
-        header.set("OS", "web");
-        header.set("AID", "RefahMarket");
-        header.set("TransactionDate", date);
-        header.set("TransactionID", transactionId);
-        header.set("Authorization", "Bearer " + user.getExcelDetail().getAuthKey());
-        header.set("Content-Type", "application/json");
-        HttpEntity body = new HttpEntity(jsonBody, header);
+        HttpEntity body = getHttpEntity(user, date, jsonBody, transactionId);
         user.setRegisterTransactionId(transactionId);
         logger.info("send user :" + user.getMobileNumber() + " to " + user.getExcelDetail().getBaseUrl() + "/api/v1/Customer/Register");
         ResponseEntity<String> response = restTemplate.postForEntity(user.getExcelDetail().getBaseUrl() + "/api/v1/Customer/Register", body, String.class);
@@ -103,18 +94,26 @@ public class UserService {
         user.setRegisterResponse(response.getBody());
     }
 
+    private HttpEntity getHttpEntity(User user, String date, UserRegisterDto jsonBody, String transactionId) {
+        logger.info("set header params");
+        HttpHeaders header = new HttpHeaders();
+        logger.info("set transactionId : " + transactionId + " for user with " + user.getMobileNumber() + " mobileNumber");
+        header.set("OS", "web");
+        header.set("AID", "RefahMarket");
+        header.set("TransactionDate", date);
+        header.set("TransactionID", transactionId);
+        header.set("Authorization", "Bearer " + user.getExcelDetail().getAuthKey());
+        header.set("Content-Type", "application/json");
+        HttpEntity body = new HttpEntity(jsonBody, header);
+        return body;
+    }
+
     @Async
-    public void sendSms(List<User> users) {
-        users.forEach(
-                u -> {
-                    try {
-                        List<Transaction> sorted = u.getWallet().getTransactions();
-                        sorted.sort(Collections.reverseOrder());
-                        smsProvider.sendMessage(u.getMobileNumber(), "کیف پول شما به مبلغ " + sorted.stream().findFirst().get().getAmount() + "  ریال شارژ شد");
-                    } catch (Exception e) {
-                        logger.error("error in send sms for user with " + u.getMobileNumber() + " mobile number");
-                    }
-                }
-        );
+    public void sendSms(User user, Transaction transaction) {
+        try {
+            smsProvider.sendMessage(user.getMobileNumber(), "کیف پول شما به مبلغ " + transaction.getAmount() + "  ریال شارژ شد");
+        } catch (Exception e) {
+            logger.error("error in send sms for user with " + user.getMobileNumber() + " mobile number");
+        }
     }
 }

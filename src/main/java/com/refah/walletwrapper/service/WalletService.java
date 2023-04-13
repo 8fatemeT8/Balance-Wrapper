@@ -31,11 +31,14 @@ public class WalletService {
     private final RestTemplate restTemplate;
     private final WalletRepository walletRepository;
     private final EntityManager entityManager;
+    private final UserService userService;
 
-    public WalletService(RestTemplate restTemplate, WalletRepository walletRepository, EntityManager entityManager) {
+    public WalletService(RestTemplate restTemplate, WalletRepository walletRepository,
+                         EntityManager entityManager, UserService userService) {
         this.restTemplate = restTemplate;
         this.walletRepository = walletRepository;
         this.entityManager = entityManager;
+        this.userService = userService;
     }
 
     @Transactional
@@ -44,37 +47,21 @@ public class WalletService {
         logger.info("prepare user data for send to transfer balance");
         users.forEach(
                 user -> {
-                    Optional<Transaction> transaction = user.getWallet().getTransactions().stream().filter(it -> !it.isFinished()).findFirst();
-                    if (!transaction.isPresent())
-                        return;
-                    BalanceDto jsonBody;
-                    try {
-                        jsonBody = new BalanceDto(Collections.singletonList(
-                                new ItemBalance(
-                                        new ChildItemBalance(user.getExcelDetail().getTenantId(), null, user.getExcelDetail().getAccountNumberCode()),
-                                        new ChildItemBalance(user.getExcelDetail().getTenantId(), user.getMobileNumber(), null),
-                                        new Long(transaction.get().getAmount())
-                                )));
-
-                    } catch (NumberFormatException e) {
-                        return;
-                    }
-                    logger.info("fill request headers");
-                    HttpHeaders header = new HttpHeaders();
-                    String transactionId = UUID.randomUUID().toString();
-                    logger.info("transfer balance for user :" + user.getMobileNumber() + " with transactionId:" + transactionId);
-                    header.set("OS", "web");
-                    header.set("AID", "RefahMarket");
-                    header.set("TransactionID", transactionId);
-                    header.set("Content-Type", "application/json");
-                    header.set("Authorization", "Bearer " + user.getExcelDetail().getAuthKey());
-                    HttpEntity body = new HttpEntity(jsonBody, header);
-                    transaction.get().setTransactionId(transactionId);
+                    Optional<Transaction> transaction = getLastTransaction(user);
+                    if (!transaction.isPresent()) return;
+                    BalanceDto jsonBody = getRequestDto(user, transaction);
+                    if (jsonBody == null) return;
+                    HttpEntity body = getHttpEntity(user, transaction, jsonBody);
                     logger.info("send user :" + user.getMobileNumber() + " to " + user.getExcelDetail().getBaseUrl() + "/api/v1/Transaction/TransferBatch");
                     ResponseEntity<String> response = restTemplate.postForEntity(user.getExcelDetail().getBaseUrl() + "/api/v1/Transaction/TransferBatch", body, String.class);
                     logger.info("/api/v1/Transaction/TransferBatch response : " + response);
                     try {
                         Root root = new ObjectMapper().readValue(response.getBody(), Root.class);
+                        if (root.isSuccess) {
+                            logger.info("sending sms to user :" + user.getMobileNumber());
+                            userService.sendSms(user, transaction.get());
+                            logger.info("send messages");
+                        }
                         if (root.isSuccess && root.data != null) {
                             transaction.get().setReceiptId(root.data.receiptID);
                             transaction.get().setFinished(true);
@@ -92,5 +79,40 @@ public class WalletService {
                     }
                 });
         walletRepository.saveAll(users.stream().map(User::getWallet).collect(Collectors.toList()));
+    }
+
+    private static Optional<Transaction> getLastTransaction(User user) {
+        return user.getWallet().getTransactions().stream().filter(it -> !it.isFinished()).findFirst();
+    }
+
+    private static BalanceDto getRequestDto(User user, Optional<Transaction> transaction) {
+        BalanceDto jsonBody;
+        try {
+            jsonBody = new BalanceDto(Collections.singletonList(
+                    new ItemBalance(
+                            new ChildItemBalance(user.getExcelDetail().getTenantId(), null, user.getExcelDetail().getAccountNumberCode()),
+                            new ChildItemBalance(user.getExcelDetail().getTenantId(), user.getMobileNumber(), null),
+                            new Long(transaction.get().getAmount())
+                    )));
+
+        } catch (NumberFormatException e) {
+            return null;
+        }
+        return jsonBody;
+    }
+
+    private HttpEntity getHttpEntity(User user, Optional<Transaction> transaction, BalanceDto jsonBody) {
+        logger.info("fill request headers");
+        HttpHeaders header = new HttpHeaders();
+        String transactionId = UUID.randomUUID().toString();
+        logger.info("transfer balance for user :" + user.getMobileNumber() + " with transactionId:" + transactionId);
+        header.set("OS", "web");
+        header.set("AID", "RefahMarket");
+        header.set("TransactionID", transactionId);
+        header.set("Content-Type", "application/json");
+        header.set("Authorization", "Bearer " + user.getExcelDetail().getAuthKey());
+        HttpEntity body = new HttpEntity(jsonBody, header);
+        transaction.get().setTransactionId(transactionId);
+        return body;
     }
 }
